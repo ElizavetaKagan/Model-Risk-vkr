@@ -2,13 +2,11 @@ import pandas as pd
 import numpy as np
 import math
 import random
-
-import yfinance as yf
-
 import datetime
 from datetime import datetime
-
 from copy import copy, deepcopy
+
+import yfinance as yf
 
 import sys
 import warnings
@@ -17,10 +15,9 @@ warnings.filterwarnings("ignore")
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import adfuller, kpss, acf, pacf
 import scipy.stats as stats
-from scipy.stats import norm, skewnorm, gennorm, t, nct, genpareto, genextreme, genhyperbolic, chi2, ncx2
+from scipy.stats import norm, skewnorm, gennorm, t, nct, genpareto, genextreme, genhyperbolic, exponpow, chi2, ncx2
 from scipy.stats import skew, kurtosis, goodness_of_fit
 
-# visualization
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_style('whitegrid')
@@ -185,6 +182,23 @@ class FinancialInstrument:
         self.stationarity_adf(lev=lev)
         self.stationarity_kpss(lev=lev)
 
+    def hill_estimator(self, m=25):
+        """
+            Оценка Хилла для последних m наблюдений.
+            Выводится значение показателя для левого и правого хвоста.
+        """
+        print('Hill estimator')
+        # left tail
+        t1 = self.data[self.name].sort_values()[:m+1].values
+        t1_m = t1[-1]
+        left_tail_index = np.mean(np.log(t1[1:]/t1_m))
+        print(f'Left tail index: {np.round(left_tail_index, 3)}')
+        #right tail
+        t2 = self.data[self.name].sort_values()[-m-1:].values
+        t2_m = t2[-m-1]
+        right_tail_index = np.mean(np.log(t2[1:]/t2_m))
+        print(f'Right tail index: {np.round(right_tail_index, 3)}')
+
     def ljungbox_test(self, lags=[1, 5, 25, 50, 250]):
             """
                  Тест Ljung-Box на наличие автокорреляции.
@@ -239,12 +253,13 @@ class FinancialInstrument:
                     print('Данного распределения нет в списке дступных.')
 
     def full_info(self,
-                      bins=100, window_size=250,
+                      bins=100, window_size=250, tail_m=25,
                       lags=[1, 5, 25, 50, 250],
                       dist_list=None):
             """
                 Построение графиков цен и доходностей, гистограммы распределения значений доходностей (bins).
                 Ф-я отображает среднее значение, стандартное отклонение, коэффициент асимметрии и коэффициент эксцесса в динамике (window_size).
+                Оценка Хилла (m наблюдений в хвостах рассматривается.)
                 Тест на стационарность.
                 Тест Ljung-Box (lags).
                 QQ-plot для распределений из dist_list. По умолчанию ['norm', 'skew norm', 'GGD', 't', 'nct', 'GPD', 'GEV', 'GHYP'].
@@ -253,6 +268,7 @@ class FinancialInstrument:
             self.returns_dynamics()
             self.histogram(bins=bins)
             self.get_moving_dynamic(window_size=window_size)
+            self.hill_estimator(m=tail_m)
             print('\n')
             self.stationarity_test()
             print('\n')
